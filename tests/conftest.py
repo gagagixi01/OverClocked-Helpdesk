@@ -74,3 +74,17 @@ def create_query(db, **kwargs):
     db.commit()
     db.refresh(obj)
     return obj
+
+
+from fastapi.testclient import TestClient
+from overclocked_helpdesk.main import app
+from overclocked_helpdesk.db.session import get_db
+
+
+@pytest.fixture
+def client(db):
+    """TestClient with get_db overridden to use test :memory: session."""
+    app.dependency_overrides[get_db] = lambda: db
+    with TestClient(app) as _client:
+        yield _client
+    app.dependency_overrides.clear()
