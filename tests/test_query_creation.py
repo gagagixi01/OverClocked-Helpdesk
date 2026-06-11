@@ -1,71 +1,61 @@
-def test_imports_work():
-    from overclocked_helpdesk.services.notifier import notify_and_create_query
-    from overclocked_helpdesk.models.query import Query
-    assert notify_and_create_query is not None
-    assert Query is not None
+import pytest
+from unittest.mock import Mock
+from sqlalchemy.orm import Session
+
+from overclocked_helpdesk.models.query import Query
+from overclocked_helpdesk.services.notifier import notify_and_create_query
+from tests.conftest import create_team
 
 
-def test_engine_creates_tables(engine):
-    """验证 engine fixture 建表成功 — 可以查询 mentors/queries/teams 表。"""
-    from sqlalchemy import text
-    from sqlalchemy.orm import Session
+class TestQueryCreation:
+    """notify_and_create_query() 的最小成功路径和 Slack 分离行为。"""
 
-    session = Session(bind=engine)
-    session.execute(text("INSERT INTO mentors (name) VALUES ('test')"))
-    session.commit()
-    result = session.execute(text("SELECT COUNT(*) FROM mentors")).scalar()
-    assert result == 1
-    session.close()
+    @pytest.fixture(autouse=True)
+    def setup(self, db, monkeypatch):
+        self.db = db
+        # Mock Slack — 默认返回 True（成功）
+        self.mock_slack = Mock(return_value=True)
+        monkeypatch.setattr(
+            "overclocked_helpdesk.services.notifier.send_slack_alert",
+            self.mock_slack,
+        )
 
+    def test_creates_query_with_pending_status_and_no_mentor(self):
+        """QC1: 成功路径 — status=PENDING, mentor_id=None, Slack 被调用。"""
+        create_team(self.db, id=5, name="Team5", location="Room 5")
 
-from overclocked_helpdesk.models.mentor import Mentor
+        query = notify_and_create_query(
+            db=self.db,
+            team_id=5,
+            issue="WiFi down",
+            location="Room 5",
+        )
 
+        assert query.id is not None
+        assert query.status == "PENDING"
+        assert query.mentor_id is None
+        assert query.team_id == 5
+        assert query.issue == "WiFi down"
+        assert query.location == "Room 5"
+        assert query.created_at is not None
+        self.mock_slack.assert_called_once()
 
-def test_db_fixture_persists_and_isolates(db):
-    """验证 db fixture 可以持久化数据，且测试间隔离。"""
-    mentor = Mentor(name="fixture_test", email="f@t.com", max_load=3)
-    db.add(mentor)
-    db.commit()
-    db.refresh(mentor)
+    def test_query_created_even_when_slack_unavailable(self):
+        """QC2: Slack 不可用时 Query 仍成功创建。"""
+        self.mock_slack.return_value = False
+        create_team(self.db, id=5, name="Team5", location="Room 5")
 
-    assert mentor.id is not None
-    assert mentor.name == "fixture_test"
+        query = notify_and_create_query(
+            db=self.db,
+            team_id=5,
+            issue="WiFi down",
+            location="Room 5",
+        )
 
-
-from tests.conftest import create_mentor, create_team, create_query
-
-
-def test_create_mentor_defaults(db):
-    m = create_mentor(db)
-    assert m.name == "Mentor_Default"
-    assert m.is_active is True
-    assert m.current_load == 0
-    assert m.max_load == 3
-
-
-def test_create_mentor_overrides(db):
-    m = create_mentor(db, name="Alice", max_load=5, current_load=2, is_active=False)
-    assert m.name == "Alice"
-    assert m.max_load == 5
-    assert m.current_load == 2
-    assert m.is_active is False
-
-
-def test_create_query_defaults(db):
-    create_team(db, id=1)  # FK needs a team
-    q = create_query(db)
-    assert q.status == "PENDING"
-    assert q.mentor_id is None
-    assert q.issue == "Test issue"
-    assert q.created_at is not None
-
-
-def test_create_query_overrides(db):
-    create_team(db, id=5)
-    create_mentor(db, id=2)
-    q = create_query(db, team_id=5, issue="Broken", location="Room 301", status="ASSIGNED", mentor_id=2)
-    assert q.team_id == 5
-    assert q.issue == "Broken"
-    assert q.location == "Room 301"
-    assert q.status == "ASSIGNED"
-    assert q.mentor_id == 2
+        assert query.id is not None
+        assert query.status == "PENDING"
+        self.mock_slack.assert_called_once()
+        # Slack 失败不影响持久化
+        db_query = self.db.query(Query).filter(Query.id == query.id).first()
+        assert db_query is not None
+        assert db_query.status == "PENDING"
