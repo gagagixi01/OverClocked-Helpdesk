@@ -59,3 +59,18 @@ class TestQueryCreation:
         db_query = self.db.query(Query).filter(Query.id == query.id).first()
         assert db_query is not None
         assert db_query.status == "PENDING"
+
+    def test_query_fields_match_input_exactly(self):
+        """QC3: 字段精确传递 — team_id, issue, location 与输入完全一致。"""
+        create_team(self.db, id=42, name="Team42", location="Room 42")
+
+        query = notify_and_create_query(
+            db=self.db,
+            team_id=42,
+            issue="Network down",
+            location="Room 301",
+        )
+
+        assert query.team_id == 42
+        assert query.issue == "Network down"
+        assert query.location == "Room 301"
