@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from overclocked_helpdesk.db.session import SessionLocal, engine, Base, get_db
 from overclocked_helpdesk.services.notifier import notify_and_create_query
@@ -14,6 +14,7 @@ from overclocked_helpdesk.api.qr import router as qr_router
 from overclocked_helpdesk.api.admin import router as admin_router
 
 # MODELS
+from collections import defaultdict
 from overclocked_helpdesk.models.mentor import Mentor
 from overclocked_helpdesk.models.query import Query
 from overclocked_helpdesk.models.team import Team
@@ -150,11 +151,24 @@ def mentors_dashboard(
 ):
     mentors = db.query(Mentor).all()
 
+    # Per-mentor query status counts
+    rows = db.query(
+        Query.mentor_id, Query.status, func.count(Query.id)
+    ).filter(
+        Query.mentor_id.isnot(None)
+    ).group_by(Query.mentor_id, Query.status).all()
+
+    query_counts = defaultdict(lambda: {"PENDING": 0, "ASSIGNED": 0, "RESOLVED": 0})
+    for mentor_id, status, count in rows:
+        if status in ("PENDING", "ASSIGNED", "RESOLVED"):
+            query_counts[mentor_id][status] = count
+
     return templates.TemplateResponse(
         "mentor_dashboard.html",
         {
             "request": request,
-            "mentors": mentors
+            "mentors": mentors,
+            "query_counts": query_counts,
         }
     )
 
