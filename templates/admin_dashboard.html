@@ -409,6 +409,44 @@ body.light-mode .icon-moon { opacity: 0; }
     cursor: pointer;
 }
 .btn-icon:hover { border-color: var(--text-main); background: var(--surface-hover); }
+
+/* ---------- STATS BAR ---------- */
+.stats-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 40px;
+}
+.stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: var(--shadow-card);
+    transition: var(--transition);
+}
+.stat-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+}
+.stat-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
 </style>
 </head>
 
@@ -434,6 +472,25 @@ body.light-mode .icon-moon { opacity: 0; }
 </nav>
 
 <div class="wrapper">
+
+    <!-- ====== Stats Bar ====== -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <i class="ph ph-chat-circle-dots" style="font-size:1.5rem; color:var(--primary);"></i>
+            <span class="stat-label">Open Queries</span>
+            <span class="stat-value">{{ open_count }}</span>
+        </div>
+        <div class="stat-card">
+            <i class="ph ph-check-circle" style="font-size:1.5rem; color:var(--success);"></i>
+            <span class="stat-label">Resolved</span>
+            <span class="stat-value">{{ resolved_count }}</span>
+        </div>
+        <div class="stat-card">
+            <i class="ph ph-users-three" style="font-size:1.5rem; color:var(--primary);"></i>
+            <span class="stat-label">Mentor Workload</span>
+            <span class="stat-value">{{ active_mentor_count }}/{{ mentors|length }} active &middot; {{ total_load }} load</span>
+        </div>
+    </div>
 
     <div>
         <div class="section-title"><i class="ph ph-user-plus"></i> Mentor Operations</div>
