@@ -1,3 +1,6 @@
+import tempfile
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -12,12 +15,19 @@ import overclocked_helpdesk.models.query   # noqa: F401
 
 @pytest.fixture(autouse=True)
 def engine():
-    """每个测试函数独立创建 :memory: engine，建表，测试后销毁。"""
-    _engine = create_engine("sqlite:///:memory:")
+    """每个测试函数独立创建临时文件数据库，建表，测试后销毁。
+    使用临时文件（非 :memory:）确保 TestClient worker 线程可以访问同一数据库。"""
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    _engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+    )
     Base.metadata.create_all(bind=_engine)
     yield _engine
     Base.metadata.drop_all(bind=_engine)
     _engine.dispose()
+    os.unlink(db_path)
 
 
 @pytest.fixture
