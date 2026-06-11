@@ -1,6 +1,8 @@
 import qrcode
 from pathlib import Path
 
+from overclocked_helpdesk.config import settings
+
 
 QR_DIR = Path("static/qr")
 QR_DIR.mkdir(parents=True, exist_ok=True)
@@ -13,7 +15,8 @@ def generate_team_qr(team_id: int) -> str:
     Returns relative file path.
     """
 
-    url = f"http://127.0.0.1:8000/team-status?team={team_id}"
+    base = settings.APP_BASE_URL.rstrip("/")
+    url = f"{base}/team-status?team={team_id}"
     file_path = QR_DIR / f"team_{team_id}.png"
 
     qr = qrcode.QRCode(

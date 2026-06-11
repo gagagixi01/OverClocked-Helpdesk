@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "sqlite:///./helpdesk.db"
 
+    # App
+    APP_BASE_URL: str = "http://127.0.0.1:8000"
+
     # Slack
     SLACK_BOT_TOKEN: str | None = None
     SLACK_WEBHOOK_URL: str | None = None
